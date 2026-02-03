@@ -1,0 +1,36 @@
+La vida de la esfera está en la propia esfera
+
+
+Objetivo/Finales
+
+Llegar al final del juego entero por checkpoints?
+
+O fases en las que cada una, el objetivo es reunirte con la pelota.
+
+
+
+1. Zonas de interferencia
+Áreas donde:
+la distancia no responde a Z/X
+o se invierte (X aleja, Z acerca 😵)
+o la esfera se queda “flotando” a una altura fija
+👉 Obliga a planear antes de entrar.
+
+2. Imanes fijos
+Sprites que:
+atraen la esfera si pasa cerca
+compiten con tu sub
+Puzzle típico:
+Tienes que ir tirando de un lado activamente para que no toque lo que no
+quieres que toque, por que el iman va tirando 
+
+3. Corrientes de agua para el submarino
+4. Trampillas que se abren y se cierran
+
+5. 
+
+6. laberinto de guiar la bola, sin ver por donde va, guiandose por sonido por ejemplo?
+o que vas viendo por alguna zona  (hueco) de repente la bola
+7. pinchos retraibles?
+8. una parte en la que la esfera se hace mas grande y mas pequeña?
+9. Criaturas que dañan la esfera
