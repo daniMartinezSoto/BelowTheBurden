@@ -4,8 +4,8 @@
 
 
 -- === submarino ===
-sub_x = 600  -- posición inicial X (en píxeles)
-sub_y = 60   -- posición inicial Y (en píxeles)
+sub_x = 200  -- posición inicial X (en píxeles)
+sub_y = 150   -- posición inicial Y (en píxeles)
 sub_vx = 0   -- velocidad horizontal
 sub_vy = 0   -- velocidad vertical
 sub_flip = false  -- true = mira izquierda, false = mira derecha
@@ -16,7 +16,7 @@ max_speed = 1.5     -- velocidad máxima
 friction = 0.80     -- fricción del agua (0.80 = conserva 80% de velocidad)
 
 -- === esfera que sigue al submarino ===
-sphere_offset_y = 4  -- distancia vertical debajo del submarino (modifica con Z/X)
+sphere_offset_y = 80  -- distancia vertical debajo del submarino (modifica con Z/X)
 sphere_x = 0         -- posición actual X de la esfera
 sphere_y = 0         -- posición actual Y de la esfera
 sphere_vx = 0        -- velocidad horizontal de la esfera
@@ -27,6 +27,9 @@ sphere_radius = 3    -- radio de la esfera (para colisiones)
 sphere_offset_speed = 1    -- velocidad de cambio de distancia
 sphere_offset_min = 10     -- distancia mínima permitida
 sphere_offset_max = 100    -- distancia máxima permitida
+
+-- === sistema de enemigos ===
+enemies = {}
 
 -- === control de burbujas de la esfera ===
 sphere_bubble_timer = 0     -- cooldown para no crear burbujas constantemente
@@ -54,6 +57,7 @@ checkpoints = {
  {x=32, y=5, sphere_dist=5},    -- segundo checkpoint, esfera a 5 píxeles
  {x=47, y=5, sphere_dist=5},    -- tercer checkpoint
  {x=76, y=7, sphere_dist=5},    -- cuarto checkpoint
+ {x=22, y=28, sphere_dist=5},
  -- añade más checkpoints con su distancia personalizada
  -- ejemplo: {x=50, y=10, sphere_dist=15}
 }
@@ -74,9 +78,8 @@ spike_max_fall_speed = 8    -- velocidad máxima de caída
 -- Valores: range (alcance en píxeles), fire_rate (frames entre disparos), proj_speed (velocidad proyectil)
 turret_defs = {
  ["110,13"] = {range=120, fire_rate=60, proj_speed=2},  -- torreta lenta, largo alcance
- ["121,15"] = {range=80,  fire_rate=50, proj_speed=2},  -- torreta media
+ ["121,15"] = {range=80,  fire_rate=80, proj_speed=3},  -- torreta media
  ["110,13"] = {range=80,  fire_rate=50, proj_speed=2},  -- (duplicado, se sobrescribe)
- ["88,7"]   = {range=80,  fire_rate=100, proj_speed=5}  -- torreta lenta, proyectiles rápidos
 }
 
 -- === sistema de torretas ===
@@ -84,27 +87,15 @@ turrets = {}       -- tabla de torretas activas (se rellena detectando sprite 54
 projectiles = {}   -- proyectiles disparados por torretas (líneas rojas)
 proj_length = 8    -- longitud visual del proyectil (línea)
 
--- === sistema de puzzles (botones y compuertas) ===
--- tipos de botón: "floor" (suelo), "ceiling" (techo), "wall_left" (pared izq), "wall_right" (pared der)
--- tipos de puerta: "vertical" (ocupa 2 tiles verticales), "horizontal" (ocupa 2 tiles horizontales)
---
--- SPRITES DE BOTONES:
--- - floor sin pulsar: 6, pulsado: 22
--- - ceiling sin pulsar: 8, pulsado: 24
--- - wall_left sin pulsar: 39, pulsado: 55
--- - wall_right sin pulsar: 40, pulsado: 56
---
--- PUERTA VERTICAL:
---   door = {x=20, y=13, type="vertical"}
---   sprites cerrados: superior=20, inferior=36
---   sprites abiertos: superior=37, inferior=52
---   ocupa: (x, y) y (x, y+1)
---
--- PUERTA HORIZONTAL:
---   door = {x=20, y=13, type="horizontal"}
---   sprites cerrados: izquierda=35, derecha=51
---   sprites abiertos: izquierda=57, derecha=58
---   ocupa: (x, y) y (x+1, y)
+
+-- === configuración de peces por posición ===
+-- clave = "x,y" en coordenadas de mapa
+fish_defs = {
+  ["27,17"] = {distance=40, speed=1,axis="vertical"},   -- pez en (10,5) recorre 40px
+  ["25,8"] = {distance=80, speed=0.3},   -- pez en (25,8) recorre 80px lento
+  ["50,12"] = {distance=20, speed=1},    -- pez en (50,12) recorre 20px rápido
+}
+
 puzzles = {
  -- Puzzle 1: dos botones, una compuerta vertical
  {
@@ -220,6 +211,31 @@ function _init()
  end
 end
 
+-- escanear el mapa para encontrar peces (sprite 64)
+for y=0,63 do
+  for x=0,127 do
+if mget(x, y) == 64 then
+  local key = x..","..y
+  local def = fish_defs[key]
+  
+  add(enemies, {
+    x = x * 8 + 4,
+    y = y * 8 + 4,
+    type = "fish",
+    dir = 1,
+    speed = def and def.speed or 0.5,
+    max_distance = def and def.distance or 40,
+    axis = def and def.axis or "horizontal",  -- NUEVO
+    anim_timer = 0,
+    sprite = 64,
+    start_x = x * 8 + 4,  -- posición inicial X
+    start_y = y * 8 + 4   -- posición inicial Y (NUEVO)
+  })
+  mset(x, y, 0)
+end
+  end
+end
+
 -- === detectar torretas en el mapa (sprite 54) ===
 -- Este código se ejecuta FUERA de _init() para que se ejecute al cargar el cartucho
 for y=0,63 do
@@ -259,7 +275,7 @@ function _update()
   sub_vx+=accel
   sub_flip=false
  end
- 
+
  -- input vertical 
  if btn(2) then -- up
   sub_vy-=accel
@@ -825,6 +841,9 @@ function _update()
   end
  end
  
+
+update_enemies()
+
  -- ============================================
  -- GESTIÓN DE MUERTE Y RESPAWN
  -- ============================================
@@ -1079,6 +1098,63 @@ function is_button_pressed(sphere_x, sphere_y, button)
  return false
 end
 
+
+
+function update_enemies()
+  for e in all(enemies) do
+if e.type == "fish" then
+  -- mover según el eje
+  if e.axis == "horizontal" then
+    e.x += e.speed * e.dir
+    -- girar al recorrer distancia
+    if abs(e.x - e.start_x) > e.max_distance then
+      e.dir *= -1
+      e.start_x = e.x
+    end
+  elseif e.axis == "vertical" then
+    e.y += e.speed * e.dir
+    -- girar al recorrer distancia
+    if abs(e.y - e.start_y) > e.max_distance then
+      e.dir *= -1
+      e.start_y = e.y
+    end
+  end
+      
+      -- animación (alternar sprite cada 15 frames)
+      e.anim_timer += 1
+      if e.anim_timer > 15 then
+        e.anim_timer = 0
+        e.sprite = e.sprite == 64 and 65 or 64
+      end
+      
+      -- colisión con submarino
+      if not is_dead and death_timer <= 0 then
+        if abs(sub_x - e.x) < 8 and abs(sub_y - e.y) < 8 then
+          is_dead = true
+          death_timer = 60
+          death_shake = 10
+          sfx(-1, 0)
+          sfx(-1, 1)
+          sfx(7, 2)
+        end
+      end
+      
+      -- colisión con esfera
+      if not is_dead and death_timer <= 0 then
+        if abs(sphere_x - e.x) < 8 and abs(sphere_y - e.y) < 8 then
+          is_dead = true
+          death_timer = 60
+          death_shake = 10
+          sfx(-1, 0)
+          sfx(-1, 1)
+          sfx(7, 2)
+        end
+      end
+    end
+  end
+end
+
+
 -- ============================================
 -- FUNCIÓN DE DIBUJO
 -- ============================================
@@ -1123,6 +1199,15 @@ function _draw()
   spr(23, spike.x - 4, spike.y)
  end
  
+
+
+-- dibujar enemigos
+for e in all(enemies) do
+  if e.type == "fish" then
+    spr(e.sprite, e.x - 4, e.y - 4, 1, 1, e.dir == -1)  -- flip si va a izquierda
+  end
+end
+
  -- dibujar torretas
  for turret in all(turrets) do
   spr(54, turret.x - 4, turret.y - 4)
