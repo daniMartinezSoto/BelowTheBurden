@@ -91,9 +91,9 @@ proj_length = 8    -- longitud visual del proyectil (línea)
 -- === configuración de peces por posición ===
 -- clave = "x,y" en coordenadas de mapa
 fish_defs = {
-  ["27,17"] = {distance=40, speed=1,axis="vertical"},   -- pez en (10,5) recorre 40px
-  ["25,8"] = {distance=80, speed=0.3},   -- pez en (25,8) recorre 80px lento
-  ["50,12"] = {distance=20, speed=1},    -- pez en (50,12) recorre 20px rápido
+  ["27,25"] = {distance=40, speed=1,axis="vertical"},   -- pez en (10,5) recorre 40px
+  ["29,30"] = {distance=80, speed=1,axis="vertical"},   -- pez en (25,8) recorre 80px lento
+  ["50,12"] = {distance=20, speed=1,},    -- pez en (50,12) recorre 20px rápido
 }
 
 puzzles = {
@@ -142,12 +142,22 @@ puzzles = {
    {x=118, y=10, type="ceiling"}
   },
   door = {x=127, y=10, type="vertical"}
- }
+ },
+  {
+  buttons = {
+   {x=28, y=24, type="ceiling"},   -- botón suelo
+   {x=28, y=30, type="floor"},
+   {x=23, y=29, type="wall_left"},
+  },
+  door = {x=37, y=20, type="vertical"},
+  time_limit = 120  -- puerta vertical
+ },
 }
 
 -- estado de botones y puertas
 buttons_state = {}  -- tabla para saber qué botones están pulsados [puzzle_index][button_index]
 doors_open = {}     -- tabla para saber qué puertas están abiertas [puzzle_index]
+puzzle_timers = {}  -- timer para puzzles con tiempo
 
 -- === partículas (burbujas) ===
 particles = {}  -- tabla de burbujas flotantes
@@ -166,14 +176,15 @@ function _init()
  sphere_y = sub_y + sphere_offset_y
  
  -- inicializar estado de puzzles (todos los botones sin pulsar, todas las puertas cerradas)
- for i=1,#puzzles do
+-- inicializar estado de puzzles
+for i=1,#puzzles do
   buttons_state[i] = {}
   for j=1,#puzzles[i].buttons do
    buttons_state[i][j] = false
   end
   doors_open[i] = false
- end
- 
+  puzzle_timers[i] = 0  -- ← NUEVO
+end
  -- inicializar checkpoints (todos sin activar)
  for i=1,#checkpoints do
   checkpoints_activated[i] = false
@@ -473,33 +484,40 @@ function _update()
  -- ============================================
  
  -- verificar botones tocados por la esfera
- for i=1,#puzzles do
+-- ============================================
+-- SISTEMA DE PUZZLES (BOTONES Y COMPUERTAS)
+-- ============================================
+
+for i=1,#puzzles do
   local puzzle = puzzles[i]
   
   for j=1,#puzzle.buttons do
    local btn_data = puzzle.buttons[j]
    
-   -- si el botón ya está pulsado, saltar
    if not buttons_state[i][j] then
-    -- verificar si la esfera toca el botón
     if is_button_pressed(sphere_x, sphere_y, btn_data) then
      buttons_state[i][j] = true
-     -- cambiar sprite a pulsado según tipo
+     -- cambiar sprite según tipo
      if btn_data.type == "floor" then
-      mset(btn_data.x, btn_data.y, 22)  -- botón suelo pulsado
+      mset(btn_data.x, btn_data.y, 22)
      elseif btn_data.type == "ceiling" then
-      mset(btn_data.x, btn_data.y, 24)  -- botón techo pulsado
+      mset(btn_data.x, btn_data.y, 24)
      elseif btn_data.type == "wall_left" then
-      mset(btn_data.x, btn_data.y, 55)  -- botón pared izq pulsado
+      mset(btn_data.x, btn_data.y, 55)
      elseif btn_data.type == "wall_right" then
-      mset(btn_data.x, btn_data.y, 56)  -- botón pared der pulsado
+      mset(btn_data.x, btn_data.y, 56)
      end
-     sfx(3, 3)  -- sonido de botón en canal 3
+     sfx(3, 3)
+     
+     -- NUEVO: si tiene tiempo límite, activar timer
+     if puzzle.time_limit and puzzle_timers[i] == 0 then
+      puzzle_timers[i] = puzzle.time_limit
+     end
     end
    end
   end
   
-  -- verificar si todos los botones del puzzle están pulsados
+  -- verificar si todos están pulsados
   local all_pressed = true
   for j=1,#puzzle.buttons do
    if not buttons_state[i][j] then
@@ -508,28 +526,50 @@ function _update()
    end
   end
   
-  -- si todos están pulsados y la puerta no está abierta, abrirla
+  -- NUEVO: decrementar timer si está activo
+  if puzzle.time_limit and puzzle_timers[i] > 0 and not all_pressed then
+   puzzle_timers[i] -= 1
+   
+   -- si se acaba el tiempo, resetear botones
+   if puzzle_timers[i] == 0 then
+    for j=1,#puzzle.buttons do
+     buttons_state[i][j] = false
+     local btn = puzzle.buttons[j]
+     if btn.type == "floor" then
+      mset(btn.x, btn.y, 6)
+     elseif btn.type == "ceiling" then
+      mset(btn.x, btn.y, 8)
+     elseif btn.type == "wall_left" then
+      mset(btn.x, btn.y, 39)
+     elseif btn.type == "wall_right" then
+      mset(btn.x, btn.y, 40)
+     end
+    end
+    sfx(15,3)  -- sonido de fallo (opcional)
+   end
+  end
+  
+  -- abrir puerta si todos están pulsados
   if all_pressed and not doors_open[i] then
    doors_open[i] = true
+   puzzle_timers[i] = 0  -- detener timer
    local door = puzzle.door
    local door_type = door.type or "vertical"
 
    if door_type == "vertical" then
-    -- puerta vertical: ocupa (x,y) y (x, y+1)
-    mset(door.x, door.y, 37)      -- compuerta superior abierta
-    mset(door.x, door.y + 1, 52)  -- compuerta inferior abierta
-    fset(mget(door.x, door.y), 0, false)      -- quitar flag sólido
+    mset(door.x, door.y, 37)
+    mset(door.x, door.y + 1, 52)
+    fset(mget(door.x, door.y), 0, false)
     fset(mget(door.x, door.y + 1), 0, false)
    elseif door_type == "horizontal" then
-    -- puerta horizontal: ocupa (x,y) y (x+1, y)
-    mset(door.x, door.y, 57)      -- compuerta izquierda abierta
-    mset(door.x + 1, door.y, 58)  -- compuerta derecha abierta
-    fset(mget(door.x, door.y), 0, false)      -- quitar flag sólido
+    mset(door.x, door.y, 57)
+    mset(door.x + 1, door.y, 58)
+    fset(mget(door.x, door.y), 0, false)
     fset(mget(door.x + 1, door.y), 0, false)
    end
-   sfx(5, 3)  -- sonido de puerta en canal 3
+   sfx(5, 3)
   end
- end
+end
  
  -- ============================================
  -- SISTEMA DE CHECKPOINTS (BANDERAS)
@@ -925,6 +965,8 @@ update_enemies()
       mset(btn.x, btn.y, 40)
      end
     end
+
+    puzzle_timers[i] = 0  -- ← AÑADIR ESTA LÍNEA
     
     -- resetear puertas a cerradas
     if doors_open[i] then
@@ -1102,23 +1144,28 @@ end
 
 function update_enemies()
   for e in all(enemies) do
-if e.type == "fish" then
-  -- mover según el eje
-  if e.axis == "horizontal" then
-    e.x += e.speed * e.dir
-    -- girar al recorrer distancia
-    if abs(e.x - e.start_x) > e.max_distance then
-      e.dir *= -1
-      e.start_x = e.x
-    end
-  elseif e.axis == "vertical" then
-    e.y += e.speed * e.dir
-    -- girar al recorrer distancia
-    if abs(e.y - e.start_y) > e.max_distance then
-      e.dir *= -1
-      e.start_y = e.y
-    end
-  end
+    if e.type == "fish" then
+      -- mover según el eje
+      if e.axis == "horizontal" then
+        e.x += e.speed * e.dir
+        
+        -- girar al recorrer distancia O chocar con pared
+        if abs(e.x - e.start_x) > e.max_distance or 
+           is_solid(e.x + 4 * e.dir, e.y) then
+          e.dir *= -1
+          e.start_x = e.x
+        end
+        
+      elseif e.axis == "vertical" then
+        e.y += e.speed * e.dir
+        
+        -- girar al recorrer distancia O chocar con pared
+        if abs(e.y - e.start_y) > e.max_distance or 
+           is_solid(e.x, e.y + 4 * e.dir) then
+          e.dir *= -1
+          e.start_y = e.y
+        end
+      end
       
       -- animación (alternar sprite cada 15 frames)
       e.anim_timer += 1
@@ -1135,9 +1182,10 @@ if e.type == "fish" then
           death_shake = 10
           sfx(-1, 0)
           sfx(-1, 1)
-          sfx(7, 2)
+          sfx(14, 2)
         end
       end
+    
       
       -- colisión con esfera
       if not is_dead and death_timer <= 0 then
@@ -1147,7 +1195,7 @@ if e.type == "fish" then
           death_shake = 10
           sfx(-1, 0)
           sfx(-1, 1)
-          sfx(7, 2)
+          sfx(14, 2)
         end
       end
     end
