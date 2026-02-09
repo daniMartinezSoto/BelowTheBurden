@@ -4,7 +4,7 @@
 
 
 -- === submarino ===
-sub_x = 200  -- posición inicial X (en píxeles)
+sub_x = 32  -- posición inicial X (en píxeles)
 sub_y = 150   -- posición inicial Y (en píxeles)
 sub_vx = 0   -- velocidad horizontal
 sub_vy = 0   -- velocidad vertical
@@ -16,7 +16,7 @@ max_speed = 1.5     -- velocidad máxima
 friction = 0.80     -- fricción del agua (0.80 = conserva 80% de velocidad)
 
 -- === esfera que sigue al submarino ===
-sphere_offset_y = 80  -- distancia vertical debajo del submarino (modifica con Z/X)
+sphere_offset_y = 80 -- distancia vertical debajo del submarino (modifica con Z/X)
 sphere_x = 0         -- posición actual X de la esfera
 sphere_y = 0         -- posición actual Y de la esfera
 sphere_vx = 0        -- velocidad horizontal de la esfera
@@ -54,10 +54,11 @@ transition_timer = 0            -- timer de la transición
 -- Cada checkpoint tiene: x, y (coordenadas del tile), sphere_dist (distancia personalizada)
 checkpoints = {
  {x=4, y=2, sphere_dist=10},    -- primer checkpoint, esfera a 10 píxeles
- {x=32, y=5, sphere_dist=5},    -- segundo checkpoint, esfera a 5 píxeles
- {x=47, y=5, sphere_dist=5},    -- tercer checkpoint
- {x=76, y=7, sphere_dist=5},    -- cuarto checkpoint
- {x=22, y=28, sphere_dist=5},
+ {x=32, y=5,sub_dy=0, sphere_dist=5},    -- segundo checkpoint, esfera a 5 píxeles
+ {x=47, y=5,sub_dy=0, sphere_dist=70},    -- tercer checkpoint
+ {x=76, y=7,sub_dy=0, sphere_dist=5},    -- cuarto checkpoint
+ {x=22, y=28,sub_dy=-4, sphere_dist=40},
+ {x=42, y=26,sub_dy=-4, sphere_dist=38}
  -- añade más checkpoints con su distancia personalizada
  -- ejemplo: {x=50, y=10, sphere_dist=15}
 }
@@ -69,7 +70,7 @@ mines = {}  -- tabla para almacenar posiciones de minas y su animación flotante
 
 -- === sistema de pinchos cayentes ===
 falling_spikes = {}         -- tabla para pinchos que caen del techo
-spike_trigger_range = 7     -- distancia horizontal para activar caída (en píxeles)
+spike_trigger_range = 3     -- distancia horizontal para activar caída (en píxeles)
 spike_gravity = 0.3         -- gravedad de los pinchos
 spike_max_fall_speed = 8    -- velocidad máxima de caída
 
@@ -91,8 +92,8 @@ proj_length = 8    -- longitud visual del proyectil (línea)
 -- === configuración de peces por posición ===
 -- clave = "x,y" en coordenadas de mapa
 fish_defs = {
-  ["27,25"] = {distance=40, speed=1,axis="vertical"},   -- pez en (10,5) recorre 40px
-  ["29,30"] = {distance=80, speed=1,axis="vertical"},   -- pez en (25,8) recorre 80px lento
+  ["27,25"] = {distance=40, speed=0.8,axis="vertical"},   -- pez en (10,5) recorre 40px
+  ["29,30"] = {distance=80, speed=0.8,axis="vertical"},   -- pez en (25,8) recorre 80px lento
   ["50,12"] = {distance=20, speed=1,},    -- pez en (50,12) recorre 20px rápido
 }
 
@@ -149,7 +150,7 @@ puzzles = {
    {x=28, y=30, type="floor"},
    {x=23, y=29, type="wall_left"},
   },
-  door = {x=37, y=20, type="vertical"},
+  door = {x=31, y=18, type="vertical"},
   time_limit = 120  -- puerta vertical
  },
 }
@@ -311,12 +312,14 @@ function _update()
  sub_x += sub_vx
  sub_y += sub_vy
 
- -- verificar colisión del submarino con hitbox más pequeña (12x6 en vez de 16x16)
- -- se verifica en 4 esquinas de la hitbox
- if is_solid(sub_x - 6, sub_y - 3) or
-    is_solid(sub_x + 5, sub_y - 3) or
-    is_solid(sub_x - 6, sub_y + 2) or
-    is_solid(sub_x + 5, sub_y + 2) then
+-- verificar colisión del submarino con hitbox más pequeña (12x6 en vez de 16x16)
+-- se verifica en 6 puntos (4 esquinas + 2 centros)
+if is_solid(sub_x - 6, sub_y - 3) or  -- esquina sup izq
+   is_solid(sub_x + 5, sub_y - 3) or  -- esquina sup der
+   is_solid(sub_x - 6, sub_y + 2) or  -- esquina inf izq
+   is_solid(sub_x + 5, sub_y + 2) or  -- esquina inf der
+   is_solid(sub_x, sub_y - 3) or      -- centro superior
+   is_solid(sub_x, sub_y + 2) then    -- centro inferior
   
   -- hay colisión, volver a la posición anterior
   sub_x = old_sub_x
@@ -587,7 +590,7 @@ end
    current_checkpoint = i
    -- actualizar coordenadas del checkpoint
    checkpoint_x = cp.x * 8 + 4  -- centrado en la celda
-   checkpoint_y = cp.y * 8 - 8  -- submarino aparece 8 píxeles arriba de la bandera
+   checkpoint_y = (cp.y + cp.sub_dy) * 8 - 8 -- submarino aparece 8 píxeles arriba de la bandera
    checkpoint_sphere_dist = cp.sphere_dist  -- guardar la distancia personalizada
    sfx(6, 3)  -- sonido de checkpoint activado
   end
