@@ -4,8 +4,8 @@
 
 
 -- === submarino ===
-sub_x = 32  -- posición inicial X (en píxeles)
-sub_y = 150   -- posición inicial Y (en píxeles)
+sub_x = 500--350  -- posición inicial X (en píxeles)
+sub_y = 160   -- posición inicial Y (en píxeles)
 sub_vx = 0   -- velocidad horizontal
 sub_vy = 0   -- velocidad vertical
 sub_flip = false  -- true = mira izquierda, false = mira derecha
@@ -92,9 +92,12 @@ proj_length = 8    -- longitud visual del proyectil (línea)
 -- === configuración de peces por posición ===
 -- clave = "x,y" en coordenadas de mapa
 fish_defs = {
-  ["27,25"] = {distance=40, speed=0.8,axis="vertical"},   -- pez en (10,5) recorre 40px
-  ["29,30"] = {distance=80, speed=0.8,axis="vertical"},   -- pez en (25,8) recorre 80px lento
-  ["50,12"] = {distance=20, speed=1,},    -- pez en (50,12) recorre 20px rápido
+  ["27,25"] = {distance=40, speed=0.7,axis="vertical"},   -- pez en (10,5) recorre 40px
+  ["29,30"] = {distance=80, speed=0.7,axis="vertical"},   -- pez en (25,8) recorre 80px lento
+  ["51,27"] = {distance=40, speed=1, axis="vertical"},    -- pez en (50,12) recorre 20px rápido
+  ["47,30"] = {distance=40, speed=1, axis="vertical"},
+  ["49,25"] = {distance=40, speed=1.2, axis="vertical"},
+  ["45,28"] = {distance=40, speed=1, axis="vertical"},
 }
 
 puzzles = {
@@ -151,6 +154,14 @@ puzzles = {
    {x=23, y=29, type="wall_left"},
   },
   door = {x=31, y=18, type="vertical"},
+  time_limit = 120  -- puerta vertical
+ },
+   {
+  buttons = {
+   {x=67, y=26, type="floor"},
+   {x=62, y=30, type="floor"},   -- botón suelo
+  },
+  door = {x=67, y=21, type="horizontal"}, 
   time_limit = 120  -- puerta vertical
  },
 }
